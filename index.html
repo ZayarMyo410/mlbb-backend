@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Line Diamonds Shop - One Piece Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* ---------------- ONE PIECE ANIME THEME BACKGROUND ---------------- */
+        body {
+            background: linear-gradient(135deg, #0b132b 0%, #1c2541 40%, #000814 100%);
+            background-size: 400% 400%;
+            animation: oceanWaves 12s ease infinite;
+            color: #f8fafc;
+            padding: 20px;
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 60%),
+                linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes oceanWaves {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-top: 10px;
+        }
+
+        header h1 {
+            color: #ffd700;
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(220, 38, 38, 0.5);
+        }
+
+        header p {
+            color: #93c5fd;
+            font-size: 0.95rem;
+        }
+
+        /* ---------------- CARD STYLES ---------------- */
+        .card {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 16px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(255, 215, 0, 0.05);
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            color: #ffd700;
+            margin-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            padding-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .input-box {
+            flex: 1;
+            margin-bottom: 15px;
+        }
+
+        .input-box label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        .input-box input[type="text"],
+        .input-box input[type="number"],
+        .input-box input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: rgba(11, 19, 43, 0.9);
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-box input:focus {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+
+        /* ---------------- PACKAGE GRID STYLES ---------------- */
+        .category-title {
+            font-size: 0.95rem;
+            color: #ef4444;
+            margin: 18px 0 10px 0;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .package-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .package-item {
+            background: linear-gradient(145deg, #1c2541, #0b132b);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 10px;
+            padding: 14px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .package-item img {
+            width: 36px;
+            height: 36px;
+            margin-bottom: 8px;
+            object-fit: contain;
+        }
+
+        .package-item:hover {
+            border-color: #ffd700;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .package-item.selected {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.7);
+        }
+
+        .diamond-amount {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+        }
+
+        .price {
+            font-size: 0.88rem;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        /* ---------------- PAYMENT GRID ---------------- */
+        .payment-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .payment-item {
+            background-color: rgba(11, 19, 43, 0.8);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .payment-item img {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+        }
+
+        .payment-item.selected {
+            border-color: #22c55e;
+            color: #4ade80;
+            background-color: rgba(5, 46, 22, 0.8);
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+        }
+
+        .pay-details {
+            background-color: rgba(11, 19, 43, 0.9);
+            border: 1px dashed #ffd700;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .pay-details strong {
+            color: #ffd700;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+            color: #000;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(234, 179, 8, 0.4);
+        }
+
+        .btn-submit:hover {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .btn-submit:disabled {
+            background: #475569;
+            color: #fff;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ---------------- AI CHATBOT STYLES ---------------- */
+        .chat-toggle-btn {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffd700 0%, #dc2626 100%);
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            border: none;
+            z-index: 9999;
+            transition: transform 0.2s;
+        }
+
+        .chat-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-widget {
+            position: fixed;
+            bottom: 95px;
+            right: 25px;
+            width: 380px;
+            height: 520px;
+            background-color: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            overflow: hidden;
+            z-index: 9998;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .chat-widget.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateY(0);
+        }
+
+        .chat-header {
+            background-color: #0b132b;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+            font-weight: bold;
+            color: #ffd700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .msg { max-width: 88%; padding: 10px 14px; border-radius: 10px; font-size: 0.88rem; line-height: 1.4; word-break: break-word; }
+        .msg.bot { background-color: #1c2541; border: 1px solid rgba(255, 215, 0, 0.2); color: #fff; align-self: flex-start; }
+        .msg.user { background: linear-gradient(135deg, #ffd700, #eab308); color: #000; align-self: flex-end; font-weight: 600; }
+
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 5px;
+            background: #000814;
+        }
+
+        .chat-input input {
+            flex: 1; background: #0b132b; border: 1px solid #334155;
+            color: #fff; padding: 10px 12px; border-radius: 6px; outline: none;
+        }
+
+        .chat-input button {
+            background: #ffd700; border: none; padding: 10px 14px;
+            border-radius: 6px; cursor: pointer; font-weight: bold; color: #000;
+        }
+
+        @media (max-width: 500px) {
+            .input-group {
+                flex-direction: column;
+                gap: 0;
+            }
+            .chat-widget {
+                width: calc(100% - 40px);
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>☠️ Grand Line Diamonds Shop</h1>
+        <p>MLBB Diamond များနှင့် Membership Pass များကို အသက်သာဆုံး ဈေးနှုန်းဖြင့် ဝယ်ယူရရှိနိုင်ပါပြီ</p>
+    </header>
+
+    <form id="orderForm" onsubmit="handleOrder(event)">
+        <!-- Step 1: Account Info -->
+        <div class="card">
+            <h2>⚓ အဆင့် (၁) - Game Account အချက်အလက်</h2>
+            <div class="input-group">
+                <div class="input-box">
+                    <label for="userId">User ID</label>
+                    <input type="number" id="userId" placeholder="e.g. 12345678" required>
+                </div>
+                <div class="input-box">
+                    <label for="zoneId">Zone ID</label>
+                    <input type="number" id="zoneId" placeholder="e.g. 1234" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Full Package Selection -->
+        <div class="card">
+            <h2>💎 အဆင့် (၂) - ဝယ်ယူမည့် Treasure Package ရွေးချယ်ပါ</h2>
+            
+            <div class="category-title"><i class="fa-solid fa-skull-crossbones"></i> Passes & Memberships</div>
+            <div class="package-grid">
+                <div class="package-item selected" onclick="selectPackage(this, 'Weekly Pass', '7000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953361.png" alt="Weekly Pass">
+                    <div class="diamond-amount">🎫 Weekly Pass</div>
+                    <div class="price">၇,၀၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, 'Starlight Member', '18500 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="Starlight Pass">
+                    <div class="diamond-amount">⭐ Starlight Pass</div>
+                    <div class="price">၁၈,၅၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, 'Twilight Pass', '32000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2545/2545601.png" alt="Twilight Pass">
+                    <div class="diamond-amount">👑 Twilight Pass</div>
+                    <div class="price">၃၂,၀၀၀ ကျပ်</div>
+                </div>
+            </div>
+
+            <div class="category-title"><i class="fa-solid fa-coins"></i> Small Packages</div>
+            <div class="package-grid">
+                <div class="package-item" onclick="selectPackage(this, '14 Diamonds', '850 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828970.png" alt="Diamond">
+                    <div class="diamond-amount">14 Dia</div>
+                    <div class="price">၈၅၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '42 Diamonds', '2400 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828970.png" alt="Diamond">
+                    <div class="diamond-amount">42 Dia</div>
+                    <div class="price">၂,၄၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '70 Diamonds', '3800 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828970.png" alt="Diamond">
+                    <div class="diamond-amount">70 Dia</div>
+                    <div class="price">၃,၈၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '86 Diamonds', '4500 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828970.png" alt="Diamond">
+                    <div class="diamond-amount">86 Dia</div>
+                    <div class="price">၄,၅၀၀ ကျပ်</div>
+                </div>
+            </div>
+
+            <div class="category-title"><i class="fa-solid fa-gem"></i> Standard Packages</div>
+            <div class="package-grid">
+                <div class="package-item" onclick="selectPackage(this, '172 Diamonds', '8800 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">172 Dia</div>
+                    <div class="price">၈,၈၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '257 Diamonds', '13000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">257 Dia</div>
+                    <div class="price">၁၃,၀၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '344 Diamonds', '17500 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">344 Dia</div>
+                    <div class="price">၁၇,၅၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '429 Diamonds', '21500 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">429 Dia</div>
+                    <div class="price">၂၁,၅၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '514 Diamonds', '25500 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">514 Dia</div>
+                    <div class="price">၂၅,၅၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '706 Diamonds', '35000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2953/2953332.png" alt="Diamonds">
+                    <div class="diamond-amount">706 Dia</div>
+                    <div class="price">၃၅,၀၀၀ ကျပ်</div>
+                </div>
+            </div>
+
+            <div class="category-title"><i class="fa-solid fa-crown"></i> Mega Treasure Packages</div>
+            <div class="package-grid">
+                <div class="package-item" onclick="selectPackage(this, '1412 Diamonds', '69000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Treasure Chest">
+                    <div class="diamond-amount">1412 Dia</div>
+                    <div class="price">၆၉,၀၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '2195 Diamonds', '105000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Treasure Chest">
+                    <div class="diamond-amount">2195 Dia</div>
+                    <div class="price">၁၀၅,၀၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '3688 Diamonds', '175000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Treasure Chest">
+                    <div class="diamond-amount">3688 Dia</div>
+                    <div class="price">၁၇၅,၀၀၀ ကျပ်</div>
+                </div>
+                <div class="package-item" onclick="selectPackage(this, '5532 Diamonds', '260000 Ks')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Treasure Chest">
+                    <div class="diamond-amount">5532 Dia</div>
+                    <div class="price">၂၆၀,၀၀၀ ကျပ်</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Payment Method & Slip Confirmation -->
+        <div class="card">
+            <h2>📜 အဆင့် (၃) - ငွေပေးချေမှုနှင့် ပြေစာ Confirm ပြုလုပ်ရန်</h2>
+            
+            <div class="payment-grid">
+                <div class="payment-item" onclick="selectPayment(this, 'KPay', '09968536880 (Kyaw Zayar Myo)')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1019/1019709.png" alt="KPay"> KPay
+                </div>
+                <div class="payment-item" onclick="selectPayment(this, 'WavePay', '09968536880 (Kyaw Zayar Myo)')">
+                    <img src="https://cdn-icons-png.flaticon.com/512/60/60484.png" alt="WavePay"> WavePay
+                </div>
+            </div>
+
+            <div id="payDetails" class="pay-details">
+                ငွေလွှဲရမည့် အကောင့်: <strong id="accInfo">-</strong>
+            </div>
+
+            <div class="input-box">
+                <label for="transId">Transaction ID (နောက်ဆုံး ၆ လုံး)</label>
+                <input type="text" id="transId" placeholder="e.g. 987654" required>
+            </div>
+
+            <div class="input-box">
+                <label for="slipFile">ငွေလွှဲပြေစာ ပုံတင်ရန် (Slip Photo)</label>
+                <input type="file" id="slipFile" accept="image/*" required>
+            </div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit">Order အတည်ပြုမည်</button>
+    </form>
+</div>
+
+<!-- ---------------- AI CHATBOT WIDGET ---------------- -->
+<button class="chat-toggle-btn" onclick="toggleChat()">
+    <i class="fa-solid fa-robot" id="chatIcon"></i>
+</button>
+
+<div class="chat-widget" id="chatWidget">
+    <!-- Chatbot Header -->
+    <div class="chat-header">
+        <div class="chat-header-title">
+            <i class="fa-solid fa-robot"></i> Grand Line AI Assistant
+        </div>
+        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="toggleChat()"></i>
+    </div>
+
+    <!-- Chat Messages Container -->
+    <div class="chat-messages" id="chatMessages">
+        <div class="msg bot">မင်္ဂလာပါ 👋 Grand Line AI Assistant ဖြစ်ပါတယ်။ Order တင်ပြီးပါက အခြေအနေကို ဒီ Chat ထဲမှာ တိုက်ရိုက် စာပြန်ပေးသွားမှာဖြစ်ပါတယ်။</div>
+    </div>
+
+    <!-- Chat Input Area -->
+    <div class="chat-input">
+        <input type="text" id="userInput" placeholder="AI သို့ စာရေးရန်..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+        <button onclick="sendChatMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    const BACKEND_URL = "http://localhost:3000/api/create-order"; 
+    const STATUS_API_URL = "http://localhost:3000/api/order-status"; 
+    const OPENAI_API_KEY = "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";
+
+    let selectedPkg = { name: 'Weekly Pass', price: '7000 Ks' };
+    let selectedPay = null;
+    let activeOrderId = null;
+    let statusInterval = null;
+    let currentStatus = null;
+
+    // Unique Order ID ဖန်တီးပေးသည့် Function
+    function generateUniqueOrderId() {
+        const timeStamp = Date.now().toString().slice(-6); 
+        const randomNum = Math.floor(100 + Math.random() * 900); 
+        return `GL-${timeStamp}${randomNum}`; 
+    }
+
+    function selectPackage(element, name, price) {
+        document.querySelectorAll('.package-item').forEach(item => item.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedPkg = { name, price };
+    }
+
+    function selectPayment(element, method, accNo) {
+        document.querySelectorAll('.payment-item').forEach(item => item.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedPay = method;
+
+        const detailsBox = document.getElementById('payDetails');
+        const accInfo = document.getElementById('accInfo');
+        accInfo.innerText = `${method} - ${accNo}`;
+        detailsBox.style.display = 'block';
+    }
+
+    const convertToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+
+    async function handleOrder(event) {
+        event.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        const userId = document.getElementById('userId').value;
+        const zoneId = document.getElementById('zoneId').value;
+        const transId = document.getElementById('transId').value;
+        const slipFile = document.getElementById('slipFile').files[0];
+
+        if (!selectedPay) {
+            alert('ကျေးဇူးပြု၍ ငွေပေးချေမှုစနစ် ရွေးချယ်ပါ။');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Order Processing...";
+
+        try {
+            const slipBase64 = await convertToBase64(slipFile);
+
+            const response = await fetch(BACKEND_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId, zoneId,
+                    pkgName: selectedPkg.name, price: selectedPkg.price,
+                    payment: selectedPay, transId, slipBase64
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || "Order submission failed");
+            }
+
+            activeOrderId = result.orderId || generateUniqueOrderId();
+            currentStatus = 'pending';
+
+            openChat();
+
+            const orderSummaryUserMsg = `ကျွန်တော် Order တင်လိုက်ပါပြီ။\n• Order ID: ${activeOrderId}\n• Package: ${selectedPkg.name} (${selectedPkg.price})\n• Account: ${userId} (${zoneId})`;
+            appendMsg(orderSummaryUserMsg, 'user');
+
+            setTimeout(() => {
+                const aiConfirmReply = `ကျေးဇူးတင်ပါတယ်ခင်ဗျာ! 🏴‍☠️\n\n**Order အချက်အလက်များ လက်ခံရရှိပါပြီ။**\n----------------------------\n• **Order ID:** ${activeOrderId}\n• **Status:** ⏳ Pending Approval\n\nAdmin မှ ငွေလွှဲပြေစာနှင့် အကောင့် အချက်အလက်များကို စစ်ဆေးနေပါသည်။ အခြေအနေ ပြောင်းလဲပါက ဒီ Chat ထဲမှာပဲ အလိုအလျောက် အသိပေးစာ ပို့ပေးပါမည်။`;
+                appendMsg(aiConfirmReply, 'bot');
+                chatHistory.push({ role: "user", content: orderSummaryUserMsg });
+                chatHistory.push({ role: "assistant", content: aiConfirmReply });
+            }, 600);
+
+            startStatusPolling(activeOrderId);
+
+            document.getElementById('orderForm').reset();
+            document.getElementById('payDetails').style.display = 'none';
+            document.querySelectorAll('.payment-item').forEach(item => item.classList.remove('selected'));
+            selectedPay = null;
+
+        } catch (error) {
+            console.error("Error submitting order:", error);
+            alert("အင်တာနက် လိုင်းချိတ်ဆက်မှု သို့မဟုတ် Server စစ်ဆေးပေးပါ။");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Order အတည်ပြုမည်";
+        }
+    }
+
+    // ---------------- REAL-TIME STATUS POLLING VIA CHAT MESSAGES ----------------
+    function startStatusPolling(orderId) {
+        if (statusInterval) clearInterval(statusInterval);
+        statusInterval = setInterval(() => checkOrderStatus(orderId), 5000);
+    }
+
+    async function checkOrderStatus(orderId) {
+        try {
+            const res = await fetch(`${STATUS_API_URL}?orderId=${orderId}`);
+            const data = await res.json();
+
+            if (data.status && data.status !== currentStatus) {
+                currentStatus = data.status;
+                // Backend မှ ပါလာသော reason (ငြင်းပယ်သည့်အကြောင်းအရင်း) ကိုပါ ထည့်သွင်းပေးမည်
+                sendChatStatusUpdateMessage(currentStatus, data.reason || "");
+            }
+        } catch (err) {
+            console.log("Status Polling Error...", err);
+        }
+    }
+
+    // Status ပြောင်းသွားပါက Chatထဲ အလိုအလျောက် စာပို့ပေးမည့် Function
+    function sendChatStatusUpdateMessage(status, reason = "") {
+        if (status === 'processing') {
+            const msg = `🔄 **Order Status Update**\n----------------------------\n• **Order ID:** ${activeOrderId}\n• **Status:** 🔵 Processing...\n\nAdmin မှ Diamond ပို့ဆောင်ပေးနေပါပြီ။ ခေတ္တစောင့်ဆိုင်းပေးပါခင်ဗျာ။`;
+            appendMsg(msg, 'bot');
+            chatHistory.push({ role: "assistant", content: msg });
+
+        } else if (status === 'completed') {
+            const msg = `🎉 **Order Completed!**\n----------------------------\n• **Order ID:** ${activeOrderId}\n• **Status:** 🟢 Completed\n\nDiamond များ အကောင့်ထဲသို့ အောင်မြင်စွာ ထည့်သွင်းပေးပြီးပါပြီ။ Grand Line Diamonds Shop ကို အသုံးပြုသောကြောင့် ကျေးဇူးအထူးတင်ရှိပါတယ်။ 💎✨`;
+            appendMsg(msg, 'bot');
+            chatHistory.push({ role: "assistant", content: msg });
+
+            clearInterval(statusInterval);
+
+        } else if (status === 'rejected') {
+            // Reject ဖြစ်သွားပါက ပြသမည့် Message Logic
+            const reasonText = reason ? `\n• **အကြောင်းအရင်း:** ${reason}` : "";
+            const msg = `❌ **Order Rejected**\n----------------------------\n• **Order ID:** ${activeOrderId}\n• **Status:** 🔴 Rejected${reasonText}\n\nအဆင်မပြေမှုတစ်ခုခုရှိပါသဖြင့် သင်၏ Order ကို ငြင်းပယ်လိုက်ပါသည်။ အချက်အလက်များ သို့မဟုတ် ငွေလွှဲပြေစာ ပြန်လည်စစ်ဆေးပြီး Customer Service ထံ ပြန်လည် ဆက်သွယ်ပေးပါခင်ဗျာ။`;
+            appendMsg(msg, 'bot');
+            chatHistory.push({ role: "assistant", content: msg });
+
+            // Polling ကို ရပ်ဆိုင်းမည်
+            clearInterval(statusInterval);
+        }
+    }
+
+    // ---------------- AI CHATBOT LOGIC ----------------
+    function openChat() {
+        const widget = document.getElementById('chatWidget');
+        const icon = document.getElementById('chatIcon');
+        widget.classList.add('active');
+        icon.className = "fa-solid fa-xmark";
+    }
+
+    function toggleChat() {
+        const widget = document.getElementById('chatWidget');
+        const icon = document.getElementById('chatIcon');
+        widget.classList.toggle('active');
+        icon.className = widget.classList.contains('active') ? "fa-solid fa-xmark" : "fa-solid fa-robot";
+    }
+
+    const aiSystemPrompt = `
+    မင်းရဲ့ အမည်က "Grand Line AI Assistant" ဖြစ်သည်။ MLBB Diamond Store ရဲ့ AI Sales Representative ဖြစ်သည်။
+    ဝယ်ယူသူက Order တင်ပြီးသွားပါက Order ကို အဆင်ပြေပြေ ပို့ဆောင်ပေးရေး၊ စောင့်ဆိုင်းချိန် လမ်းညွှန်ပေးရေးနှင့် ဈေးနှုန်းမေးမြန်းမှုများကို အကူအညီပေးရမည်။
+    `;
+
+    let chatHistory = [{ role: "system", content: aiSystemPrompt }];
+
+    async function sendChatMessage() {
+            const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendMsg(text, 'user');
+        input.value = '';
+
+        chatHistory.push({ role: "user", content: text });
+
+        try {
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${OPENAI_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: chatHistory
+                })
+            });
+
+            const data = await response.json();
+            if (data.choices && data.choices[0]) {
+                const reply = data.choices[0].message.content;
+                chatHistory.push({ role: "assistant", content: reply });
+                appendMsg(reply, 'bot');
+            } else {
+                appendMsg("Order နဲ့ ပတ်သက်ပြီး အဆင်ပြေစွာ ဆက်လက် ဆောင်ရွက်ပေးနေပါပြီ ခင်ဗျာ။", 'bot');
+            }
+        } catch (err) {
+            appendMsg("လူကြီးမင်း၏ မေးမြန်းမှုကို လက်ခံရရှိပါသည်။ ခေတ္တစောင့်ဆိုင်းပေးပါခင်ဗျာ။", 'bot');
+        }
+    }
+
+    function appendMsg(text, sender) {
+        const box = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `msg ${sender}`;
+        
+        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+        
+        div.innerHTML = formattedText;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
