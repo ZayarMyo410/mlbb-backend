@@ -1,10 +1,13 @@
 {
+  "name": "mlbb-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
-    "axios": "^1.19.0",
-    "body-parser": "^2.3.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "grammy": "^1.45.1",
-    "node-telegram-bot-api": "^2.0.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
   }
 }
