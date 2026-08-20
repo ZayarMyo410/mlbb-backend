@@ -583,7 +583,7 @@
 <script>
     const BACKEND_URL = "https://mlbb-backend-04am.onrender.com/api/create-order";
 const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status";
-    const OPENAI_API_KEY = "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";
+    
 
     let selectedPkg = { name: 'Weekly Pass', price: '7000 Ks' };
     let selectedPay = null;
@@ -642,15 +642,24 @@ const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status"
         try {
             const slipBase64 = await convertToBase64(slipFile);
 
-            const response = await fetch(BACKEND_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    userId, zoneId,
-                    pkgName: selectedPkg.name, price: selectedPkg.price,
-                    payment: selectedPay, transId, slipBase64
-                })
-            });
+            // Telegram Mini App မှ ဝယ်သူ၏ Telegram User ID ကို ယူခြင်း
+    // Telegram ထဲတွင်ဖွင့်ပါက ID အမှန်ယူမည်၊ Chrome Browser ထဲတွင် စမ်းပါက Test ID သုံးမည်
+const customerChatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || "1745534669";
+
+    const response = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            userId, 
+            zoneId,
+            pkgName: selectedPkg.name, 
+            price: selectedPkg.price,
+            payment: selectedPay, 
+            transId, 
+            slipBase64,
+            customerChatId // <-- ဒီနေရာတွင် customerChatId ကို ထပ်ဖြည့်ပေးပါ
+        })
+    });
 
             const result = await response.json();
 
@@ -682,7 +691,7 @@ const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status"
 
         } catch (error) {
             console.error("Error submitting order:", error);
-            alert("အင်တာနက် လိုင်းချိတ်ဆက်မှု သို့မဟုတ် Server စစ်ဆေးပေးပါ။");
+            alert("Error: " + error.message);
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = "Order အတည်ပြုမည်";
@@ -696,19 +705,24 @@ const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status"
     }
 
     async function checkOrderStatus(orderId) {
-        try {
-            const res = await fetch(`${STATUS_API_URL}?orderId=${orderId}`);
-            const data = await res.json();
+    try {
+        const res = await fetch(`${STATUS_API_URL}?orderId=${orderId}`);
+        const data = await res.json();
 
-            if (data.status && data.status !== currentStatus) {
-                currentStatus = data.status;
-                // Backend မှ ပါလာသော reason (ငြင်းပယ်သည့်အကြောင်းအရင်း) ကိုပါ ထည့်သွင်းပေးမည်
-                sendChatStatusUpdateMessage(currentStatus, data.reason || "");
+        if (data.status && data.status !== currentStatus) {
+            currentStatus = data.status;
+            // Backend မှ ပါလာသော reason ကိုပါ ထည့်သွင်းပေးမည်
+            sendChatStatusUpdateMessage(currentStatus, data.reason || "");
+
+            // 🟢 Completed သို့မဟုတ် Rejected ဖြစ်သွားပါက Polling ကို ရပ်မည်
+            if (currentStatus === 'completed' || currentStatus === 'rejected') {
+                if (statusInterval) clearInterval(statusInterval);
             }
-        } catch (err) {
-            console.log("Status Polling Error...", err);
         }
+    } catch (err) {
+        console.log("Status Polling Error...", err);
     }
+}
 
     // Status ပြောင်းသွားပါက Chatထဲ အလိုအလျောက် စာပို့ပေးမည့် Function
     function sendChatStatusUpdateMessage(status, reason = "") {
@@ -807,5 +821,14 @@ const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status"
     }
 </script>
 
+
+    <script>
+        // Website စပွင့်တာနဲ့ Backend Server ကို နိုးထားရန်
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch('https://mlbb-backend-04am.onrender.com/api/ping')
+                .then(() => console.log('Backend Awake!'))
+                .catch(err => console.log('Waking up server...'));
+        });
+    </script>
 </body>
 </html>
