@@ -5,9 +5,16 @@ const FormData = require('form-data');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// 🟢 CORS Options ကို သေချာ ပိတ်ပေးပါ
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8828334122:AAHsmbuBmbhiRHBNvk8CjbhflAjUZ96PUl8";
@@ -16,7 +23,12 @@ const SERVER_URL = "https://mlbb-backend-04am.onrender.com";
 
 const orderStore = {};
 
-// 1. TELEGRAM WEBHOOK AUTO SET
+// 1. HEALTH CHECK / KEEP-ALIVE (Server မအိပ်စေရန်)
+app.get('/api/ping', (req, res) => {
+    res.status(200).send("OK");
+});
+
+// 2. TELEGRAM WEBHOOK AUTO SET
 async function setupWebhook() {
     try {
         const webhookUrl = `${SERVER_URL}/api/telegram-webhook`;
@@ -27,69 +39,62 @@ async function setupWebhook() {
     }
 }
 
-// 2. TELEGRAM ORDER API
-app.post('/api/create-order', async (req, res) => {
-    try {
-        const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
+// 3. TELEGRAM ORDER API
+app.post('/api/create-order', (req, res) => {
+    const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
 
-        const orderId = `GL-${Date.now().toString().slice(-6)}`;
-        const targetId = customerChatId || "1745534669"; 
+    const orderId = `GL-${Date.now().toString().slice(-6)}`;
+    const targetId = customerChatId || "1745534669"; 
 
-        orderStore[orderId] = { status: "processing", customerChatId: targetId };
+    orderStore[orderId] = { status: "processing", customerChatId: targetId };
 
-        // 🟢 ဝယ်သူဆီသို့ Response ချက်ချင်း အရင်ပြန်ပေးမည် (Connection Closed မဖြစ်စေရန်)
-        res.json({ success: true, orderId: orderId, message: "Order processed successfully!" });
+    // 🟢 FRONTEND သို့ ချက်ချင်း 200 OK ပြန်ပေးလိုက်ပါ (ERR_CONNECTION_CLOSED မဖြစ်အောင်)
+    res.status(200).json({ success: true, orderId: orderId, message: "Order processed successfully!" });
 
-        // 🟢 Telegram သို့ စာပို့ခြင်းကို Background တွင် သီးသန့် အလုပ်လုပ်ခိုင်းမည်
-        setTimeout(async () => {
-            try {
-                const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
+    // 🟢 Telegram သို့ စာပို့ခြင်းကို တပြိုင်နက် Background Process အဖြစ် ခွဲထုတ်ပါ
+    setImmediate(async () => {
+        try {
+            const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
 
-                const replyMarkup = JSON.stringify({
-                    inline_keyboard: [
-                        [
-                            { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
-                            { text: "❌ Reject", callback_data: `reject_${orderId}` }
-                        ]
+            const replyMarkup = JSON.stringify({
+                inline_keyboard: [
+                    [
+                        { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
+                        { text: "❌ Reject", callback_data: `reject_${orderId}` }
                     ]
+                ]
+            });
+
+            if (slipBase64 && typeof slipBase64 === 'string' && slipBase64.includes('base64,')) {
+                const base64Data = slipBase64.split('base64,')[1];
+                const imageBuffer = Buffer.from(base64Data, 'base64');
+                
+                const form = new FormData();
+                form.append('chat_id', ADMIN_CHAT_ID);
+                form.append('photo', imageBuffer, { filename: 'slip.jpg' });
+                form.append('caption', textMessage);
+                form.append('parse_mode', 'Markdown');
+                form.append('reply_markup', replyMarkup);
+
+                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
+                    headers: form.getHeaders(),
+                    timeout: 10000
                 });
-
-                if (slipBase64 && slipBase64.includes('base64,')) {
-                    const base64Data = slipBase64.split('base64,')[1];
-                    const imageBuffer = Buffer.from(base64Data, 'base64');
-                    
-                    const form = new FormData();
-                    form.append('chat_id', ADMIN_CHAT_ID);
-                    form.append('photo', imageBuffer, { filename: 'slip.jpg' });
-                    form.append('caption', textMessage);
-                    form.append('parse_mode', 'Markdown');
-                    form.append('reply_markup', replyMarkup);
-
-                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
-                        headers: form.getHeaders()
-                    });
-                } else {
-                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        chat_id: ADMIN_CHAT_ID,
-                        text: textMessage,
-                        parse_mode: 'Markdown',
-                        reply_markup: JSON.parse(replyMarkup)
-                    });
-                }
-            } catch (bgError) {
-                console.error("Background Telegram Send Error:", bgError.response ? bgError.response.data : bgError.message);
+            } else {
+                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    chat_id: ADMIN_CHAT_ID,
+                    text: textMessage,
+                    parse_mode: 'Markdown',
+                    reply_markup: JSON.parse(replyMarkup)
+                }, { timeout: 10000 });
             }
-        }, 50);
-
-    } catch (error) {
-        console.error("Create Order Error:", error.message);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, error: "Failed to create order" });
+        } catch (bgError) {
+            console.error("Background Telegram Send Error:", bgError.response ? bgError.response.data : bgError.message);
         }
-    }
+    });
 });
 
-// 3. ORDER STATUS API
+// 4. ORDER STATUS API
 app.get('/api/order-status', (req, res) => {
     const { orderId } = req.query;
     const orderData = orderStore[orderId];
@@ -101,7 +106,7 @@ app.get('/api/order-status', (req, res) => {
     }
 });
 
-// 4. OPENAI CHATBOT PROXY API
+// 5. OPENAI CHATBOT PROXY API
 app.post('/api/chat', async (req, res) => {
     try {
         const { messages } = req.body;
@@ -117,7 +122,7 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 5. TELEGRAM CALLBACK QUERY HANDLER (WEBHOOK)
+// 6. TELEGRAM CALLBACK QUERY HANDLER (WEBHOOK)
 app.post('/api/telegram-webhook', async (req, res) => {
     try {
         const { callback_query } = req.body;
@@ -202,7 +207,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
     }
 });
 
-// 6. SERVER LISTEN
+// 7. SERVER LISTEN
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}...`);
