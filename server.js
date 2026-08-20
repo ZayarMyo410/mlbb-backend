@@ -41,7 +41,6 @@ app.post('/api/create-order', async (req, res) => {
 
         const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
 
-        // 🟢 FIX: callback_data ထဲတွင် targetId မဟုတ်ဘဲ orderId သာ ပို့ရမည်
         const replyMarkup = JSON.stringify({
             inline_keyboard: [
                 [
@@ -109,16 +108,26 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 5. TELEGRAM CALLBACK QUERY HANDLER
+// 5. TELEGRAM CALLBACK QUERY HANDLER (WEBHOOK)
 app.post('/api/telegram-webhook', async (req, res) => {
     try {
         const { callback_query } = req.body;
 
         if (callback_query) {
+            // 🟢 1. Telegram Timeout မဖြစ်စေရန် အမြန်ဆုံး အကြောင်းပြန်ပါ
+            try {
+                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+                    callback_query_id: callback_query.id,
+                    text: "Order status updated!"
+                });
+            } catch (ansErr) {
+                console.log("Answer Callback Expired:", ansErr.message);
+            }
+
             const callbackData = callback_query.data;
             const messageId = callback_query.message.message_id;
             const chatId = callback_query.message.chat.id;
-            const originalText = callback_query.message.caption || callback_query.message.text || "";
+            let originalText = callback_query.message.caption || callback_query.message.text || "";
 
             const action = callbackData.split("_")[0];
             const orderId = callbackData.split("_")[1];
@@ -131,7 +140,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 statusText = "\n\n🟢 *STATUS: CONFIRMED BY ADMIN*";
                 customerMessage = `🎉 *Order ID (${orderId})* အား အတည်ပြုလိုက်ပါပြီ။ Diamond များ ထည့်သွင်းပေးပြီးပါပြီခင်ဗျာ။`;
                 
-                // 🟢 orderStore ထဲတွင် status ကို completed ဟု ပြောင်းပေးသည်
                 if (orderStore[orderId]) {
                     orderStore[orderId].status = "completed";
                 }
@@ -144,7 +152,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // ဝယ်သူ (Customer) ထံ Telegram စာပြန်ပို့ခြင်း
+            // 🟢 2. ဝယ်သူထံ စာပို့ခြင်း
             if (targetChatId) {
                 try {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -157,35 +165,34 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-                callback_query_id: callback_query.id,
-                text: "Order status updated!"
-            });
-
-            // Admin Message ကို Status ပြင်ပေးခြင်း
-            if (callback_query.message.photo) {
-                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
-                    chat_id: chatId,
-                    message_id: messageId,
-                    caption: originalText + statusText,
-                    parse_mode: 'Markdown',
-                    reply_markup: { inline_keyboard: [] }
-                });
-            } else {
-                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-                    chat_id: chatId,
-                    message_id: messageId,
-                    text: originalText + statusText,
-                    parse_mode: 'Markdown',
-                    reply_markup: { inline_keyboard: [] }
-                });
+            // 🟢 3. Admin စာတို/ပုံ၏ စာသားကို Status သို့ ပြောင်းလဲခြင်း
+            try {
+                if (callback_query.message.photo) {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        caption: originalText + statusText,
+                        parse_mode: 'Markdown',
+                        reply_markup: { inline_keyboard: [] }
+                    });
+                } else {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        text: originalText + statusText,
+                        parse_mode: 'Markdown',
+                        reply_markup: { inline_keyboard: [] }
+                    });
+                }
+            } catch (editErr) {
+                console.error("Edit Message Error:", editErr.response?.data || editErr.message);
             }
         }
 
         res.sendStatus(200);
     } catch (error) {
         console.error("Callback Error:", error.response ? error.response.data : error.message);
-        res.sendStatus(500);
+        res.sendStatus(200); // Server Crash မဖြစ်စေရန် 200 သာ ပြန်ပေးပါမည်
     }
 });
 
