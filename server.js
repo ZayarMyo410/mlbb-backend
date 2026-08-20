@@ -6,6 +6,9 @@ require('dotenv').config();
 
 const app = express();
 
+// 🟢 Order ID အတွက် Auto-Increment Counter ကြေညာခြင်း
+let orderCounter = 1;
+
 // 🟢 CORS Options ကို သေချာ ပိတ်ပေးပါ
 app.use(cors({
     origin: '*',
@@ -43,7 +46,11 @@ async function setupWebhook() {
 app.post('/api/create-order', (req, res) => {
     const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
 
-    const orderId = `GL-${Date.now().toString().slice(-6)}`;
+    // 🟢 GL-000001, GL-000002 အစဉ်လိုက် ထွက်မည့် Logic
+    const formattedNumber = String(orderCounter).padStart(6, '0');
+    const orderId = `GL-${formattedNumber}`;
+    orderCounter++; // နောက် Order အတွက် +1 တိုးမည်
+
     const targetId = customerChatId || "1745534669"; 
 
     orderStore[orderId] = { status: "processing", customerChatId: targetId };
