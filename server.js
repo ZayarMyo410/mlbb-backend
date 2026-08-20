@@ -2,12 +2,34 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const FormData = require('form-data');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
 
-// 🟢 Order ID အတွက် Auto-Increment Counter ကြေညာခြင်း
-let orderCounter = 1;
+// 🟢 1. MONGODB CONNECT & COUNTER SCHEMA SETUP
+const MONGODB_URI = process.env.MONGODB_URI || "your_mongodb_connection_string_here";
+
+mongoose.connect(MONGODB_URI)
+    .then(() => console.log("MongoDB Connected Successfully!"))
+    .catch(err => console.error("MongoDB Connection Error:", err.message));
+
+// Order Counter အတွက် Schema သတ်မှတ်ခြင်း
+const counterSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    seq: { type: Number, default: 0 }
+});
+const Counter = mongoose.model('Counter', counterSchema);
+
+// Order ID အစဉ်လိုက် တိုးပေးမည့် Async Function
+async function getNextSequence(sequenceName) {
+    const counter = await Counter.findOneAndUpdate(
+        { id: sequenceName },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    );
+    return counter.seq;
+}
 
 // 🟢 CORS Options
 app.use(cors({
@@ -42,61 +64,65 @@ async function setupWebhook() {
     }
 }
 
-// 3. TELEGRAM ORDER API
-app.post('/api/create-order', (req, res) => {
-    const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
+// 3. TELEGRAM ORDER API (Database မှ Counter ယူမည်)
+app.post('/api/create-order', async (req, res) => {
+    try {
+        const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
 
-    const formattedNumber = String(orderCounter).padStart(6, '0');
-    const orderId = `GL-${formattedNumber}`;
-    orderCounter++;
+        // 🟢 MongoDB ထဲမှ Sequence ID တောင်းယူခြင်း (Restart ကျလည်း မပျောက်ပါ)
+        const seqNumber = await getNextSequence("order_id");
+        const formattedNumber = String(seqNumber).padStart(6, '0');
+        const orderId = `GL-${formattedNumber}`;
 
-    // 🟢 customerChatId မရှိပါက null ထားမည် (Admin ID ထဲ မဝင်စေရန်)
-    const targetId = customerChatId || null; 
+        const targetId = customerChatId || null; 
+        orderStore[orderId] = { status: "processing", customerChatId: targetId };
 
-    orderStore[orderId] = { status: "processing", customerChatId: targetId };
+        res.status(200).json({ success: true, orderId: orderId, message: "Order processed successfully!" });
 
-    res.status(200).json({ success: true, orderId: orderId, message: "Order processed successfully!" });
+        setImmediate(async () => {
+            try {
+                const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
 
-    setImmediate(async () => {
-        try {
-            const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
-
-            const replyMarkup = JSON.stringify({
-                inline_keyboard: [
-                    [
-                        { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
-                        { text: "❌ Reject", callback_data: `reject_${orderId}` }
+                const replyMarkup = JSON.stringify({
+                    inline_keyboard: [
+                        [
+                            { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
+                            { text: "❌ Reject", callback_data: `reject_${orderId}` }
+                        ]
                     ]
-                ]
-            });
-
-            if (slipBase64 && typeof slipBase64 === 'string' && slipBase64.includes('base64,')) {
-                const base64Data = slipBase64.split('base64,')[1];
-                const imageBuffer = Buffer.from(base64Data, 'base64');
-                
-                const form = new FormData();
-                form.append('chat_id', ADMIN_CHAT_ID);
-                form.append('photo', imageBuffer, { filename: 'slip.jpg' });
-                form.append('caption', textMessage);
-                form.append('parse_mode', 'Markdown');
-                form.append('reply_markup', replyMarkup);
-
-                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
-                    headers: form.getHeaders(),
-                    timeout: 10000
                 });
-            } else {
-                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                    chat_id: ADMIN_CHAT_ID,
-                    text: textMessage,
-                    parse_mode: 'Markdown',
-                    reply_markup: JSON.parse(replyMarkup)
-                }, { timeout: 10000 });
+
+                if (slipBase64 && typeof slipBase64 === 'string' && slipBase64.includes('base64,')) {
+                    const base64Data = slipBase64.split('base64,')[1];
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+                    
+                    const form = new FormData();
+                    form.append('chat_id', ADMIN_CHAT_ID);
+                    form.append('photo', imageBuffer, { filename: 'slip.jpg' });
+                    form.append('caption', textMessage);
+                    form.append('parse_mode', 'Markdown');
+                    form.append('reply_markup', replyMarkup);
+
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
+                        headers: form.getHeaders(),
+                        timeout: 10000
+                    });
+                } else {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        chat_id: ADMIN_CHAT_ID,
+                        text: textMessage,
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.parse(replyMarkup)
+                    }, { timeout: 10000 });
+                }
+            } catch (bgError) {
+                console.error("Background Telegram Send Error:", bgError.response ? bgError.response.data : bgError.message);
             }
-        } catch (bgError) {
-            console.error("Background Telegram Send Error:", bgError.response ? bgError.response.data : bgError.message);
-        }
-    });
+        });
+    } catch (err) {
+        console.error("Order Creation Error:", err.message);
+        res.status(500).json({ error: "Order Creation Failed" });
+    }
 });
 
 // 4. ORDER STATUS API
@@ -188,7 +214,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // 🟢 Admin Message အား Update လုပ်မည် (Button များ ဖြုတ်ပြီး Status Tag လေးသာ ထည့်မည်)
+            // 🟢 Admin Message အား Update လုပ်မည် (Button ပျောက်ပြီး Tag သာ ကျန်မည်)
             try {
                 if (callback_query.message.photo) {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
@@ -196,7 +222,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                         message_id: messageId,
                         caption: originalText + adminStatusTag,
                         parse_mode: 'Markdown',
-                        reply_markup: { inline_keyboard: [] }
+                        reply_markup: JSON.stringify({ inline_keyboard: [] })
                     });
                 } else {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
@@ -204,7 +230,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                         message_id: messageId,
                         text: originalText + adminStatusTag,
                         parse_mode: 'Markdown',
-                        reply_markup: { inline_keyboard: [] }
+                        reply_markup: JSON.stringify({ inline_keyboard: [] })
                     });
                 }
             } catch (editErr) {
