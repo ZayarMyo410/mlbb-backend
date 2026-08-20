@@ -9,7 +9,7 @@ const app = express();
 // 🟢 Order ID အတွက် Auto-Increment Counter ကြေညာခြင်း
 let orderCounter = 1;
 
-// 🟢 CORS Options ကို သေချာ ပိတ်ပေးပါ
+// 🟢 CORS Options
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -26,7 +26,7 @@ const SERVER_URL = "https://mlbb-backend-04am.onrender.com";
 
 const orderStore = {};
 
-// 1. HEALTH CHECK / KEEP-ALIVE (Server မအိပ်စေရန်)
+// 1. HEALTH CHECK / KEEP-ALIVE
 app.get('/api/ping', (req, res) => {
     res.status(200).send("OK");
 });
@@ -46,19 +46,16 @@ async function setupWebhook() {
 app.post('/api/create-order', (req, res) => {
     const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
 
-    // 🟢 GL-000001, GL-000002 အစဉ်လိုက် ထွက်မည့် Logic
     const formattedNumber = String(orderCounter).padStart(6, '0');
     const orderId = `GL-${formattedNumber}`;
-    orderCounter++; // နောက် Order အတွက် +1 တိုးမည်
+    orderCounter++;
 
     const targetId = customerChatId || "1745534669"; 
 
     orderStore[orderId] = { status: "processing", customerChatId: targetId };
 
-    // 🟢 FRONTEND သို့ ချက်ချင်း 200 OK ပြန်ပေးလိုက်ပါ (ERR_CONNECTION_CLOSED မဖြစ်အောင်)
     res.status(200).json({ success: true, orderId: orderId, message: "Order processed successfully!" });
 
-    // 🟢 Telegram သို့ စာပို့ခြင်းကို တပြိုင်နက် Background Process အဖြစ် ခွဲထုတ်ပါ
     setImmediate(async () => {
         try {
             const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
@@ -135,15 +132,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
         const { callback_query } = req.body;
 
         if (callback_query) {
-            try {
-                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-                    callback_query_id: callback_query.id,
-                    text: "Order status updated!"
-                });
-            } catch (ansErr) {
-                console.log("Answer Callback Expired:", ansErr.message);
-            }
-
             const callbackData = callback_query.data;
             const messageId = callback_query.message.message_id;
             const chatId = callback_query.message.chat.id;
@@ -152,26 +140,48 @@ app.post('/api/telegram-webhook', async (req, res) => {
             const action = callbackData.split("_")[0];
             const orderId = callbackData.split("_")[1];
 
-            let statusText = "";
+            let adminStatusTag = "";
             let customerMessage = "";
             let targetChatId = orderStore[orderId]?.customerChatId || "1745534669";
 
             if (action === "confirm") {
-                statusText = "\n\n🟢 *STATUS: CONFIRMED BY ADMIN*";
+                // 🟢 Admin ဘက်မှာ ပြမည့် အိုကေစာသား (တိုတိုလေး)
+                adminStatusTag = "\n\n🟢 *[CONFIRMED]*";
+                
+                // 🟢 ဝယ်သူ ဘက်သို့ ပို့မည့် စာအပြည့်အစုံ
                 customerMessage = `🎉 *Order ID (${orderId})* အား အတည်ပြုလိုက်ပါပြီ။ Diamond များ ထည့်သွင်းပေးပြီးပါပြီခင်ဗျာ။`;
                 
+                // 🟢 Admin နှိပ်လိုက်ရင် ပေါ်လာမည့် Popup Notification (အပေါ်မှ ခေတ္တ ပေါ်မည်)
+                try {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+                        callback_query_id: callback_query.id,
+                        text: `Order ${orderId} Confirmed!`
+                    });
+                } catch (ansErr) {}
+
                 if (orderStore[orderId]) {
                     orderStore[orderId].status = "completed";
                 }
             } else if (action === "reject") {
-                statusText = "\n\n🔴 *STATUS: REJECTED BY ADMIN*";
+                // 🔴 Admin ဘက်မှာ ပြမည့် ပယ်ဖျက်စာသား (တိုတိုလေး)
+                adminStatusTag = "\n\n🔴 *[REJECTED]*";
+                
+                // 🔴 ဝယ်သူ ဘက်သို့ ပို့မည့် စာအပြည့်အစုံ
                 customerMessage = `❌ *Order ID (${orderId})* အား ပယ်ဖျက်လိုက်ပါသည်။ အသေးစိတ်ကို Admin ထံ ဆက်သွယ်ပါခင်ဗျာ။`;
                 
+                try {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+                        callback_query_id: callback_query.id,
+                        text: `Order ${orderId} Rejected!`
+                    });
+                } catch (ansErr) {}
+
                 if (orderStore[orderId]) {
                     orderStore[orderId].status = "rejected";
                 }
             }
 
+            // 1. ဝယ်သူထံသို့ စာအပြည့်အစုံ ပို့မည်
             if (targetChatId) {
                 try {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -184,12 +194,13 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
+            // 2. Admin Telegram Message အား Update လုပ်မည် (Button များ ဖြုတ်ပြီး စာတိုလေးသာ ပေါင်းထည့်မည်)
             try {
                 if (callback_query.message.photo) {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
                         chat_id: chatId,
                         message_id: messageId,
-                        caption: originalText + statusText,
+                        caption: originalText + adminStatusTag,
                         parse_mode: 'Markdown',
                         reply_markup: { inline_keyboard: [] }
                     });
@@ -197,7 +208,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
                         chat_id: chatId,
                         message_id: messageId,
-                        text: originalText + statusText,
+                        text: originalText + adminStatusTag,
                         parse_mode: 'Markdown',
                         reply_markup: { inline_keyboard: [] }
                     });
