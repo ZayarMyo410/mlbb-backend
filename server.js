@@ -14,7 +14,6 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8828334122:AAHsmbuBmbhiRHBN
 const ADMIN_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "1745534669";
 const SERVER_URL = "https://mlbb-backend-04am.onrender.com";
 
-// Order Status များကို ခေတ္တ သိမ်းဆည်းထားရန် Object
 const orderStore = {};
 
 // 1. TELEGRAM WEBHOOK AUTO SET
@@ -36,47 +35,57 @@ app.post('/api/create-order', async (req, res) => {
         const orderId = `GL-${Date.now().toString().slice(-6)}`;
         const targetId = customerChatId || "1745534669"; 
 
-        // Order Status ကို စတင်သိမ်းဆည်းမည်
         orderStore[orderId] = { status: "processing", customerChatId: targetId };
 
-        const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
-
-        const replyMarkup = JSON.stringify({
-            inline_keyboard: [
-                [
-                    { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
-                    { text: "❌ Reject", callback_data: `reject_${orderId}` }
-                ]
-            ]
-        });
-
-        if (slipBase64) {
-            const base64Data = slipBase64.replace(/^data:image\/\w+;base64,/, "");
-            const imageBuffer = Buffer.from(base64Data, 'base64');
-            
-            const form = new FormData();
-            form.append('chat_id', ADMIN_CHAT_ID);
-            form.append('photo', imageBuffer, { filename: 'slip.jpg' });
-            form.append('caption', textMessage);
-            form.append('parse_mode', 'Markdown');
-            form.append('reply_markup', replyMarkup);
-
-            await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
-                headers: form.getHeaders()
-            });
-        } else {
-            await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                chat_id: ADMIN_CHAT_ID,
-                text: textMessage,
-                parse_mode: 'Markdown',
-                reply_markup: JSON.parse(replyMarkup)
-            });
-        }
-
+        // 🟢 ဝယ်သူဆီသို့ Response ချက်ချင်း အရင်ပြန်ပေးမည် (Connection Closed မဖြစ်စေရန်)
         res.json({ success: true, orderId: orderId, message: "Order processed successfully!" });
+
+        // 🟢 Telegram သို့ စာပို့ခြင်းကို Background တွင် သီးသန့် အလုပ်လုပ်ခိုင်းမည်
+        setTimeout(async () => {
+            try {
+                const textMessage = `🛒 *New Order Received!*\n------------------------\n🆔 *Order ID:* \`${orderId}\` \n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
+
+                const replyMarkup = JSON.stringify({
+                    inline_keyboard: [
+                        [
+                            { text: "✅ Confirm", callback_data: `confirm_${orderId}` },
+                            { text: "❌ Reject", callback_data: `reject_${orderId}` }
+                        ]
+                    ]
+                });
+
+                if (slipBase64 && slipBase64.includes('base64,')) {
+                    const base64Data = slipBase64.split('base64,')[1];
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+                    
+                    const form = new FormData();
+                    form.append('chat_id', ADMIN_CHAT_ID);
+                    form.append('photo', imageBuffer, { filename: 'slip.jpg' });
+                    form.append('caption', textMessage);
+                    form.append('parse_mode', 'Markdown');
+                    form.append('reply_markup', replyMarkup);
+
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, form, {
+                        headers: form.getHeaders()
+                    });
+                } else {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        chat_id: ADMIN_CHAT_ID,
+                        text: textMessage,
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.parse(replyMarkup)
+                    });
+                }
+            } catch (bgError) {
+                console.error("Background Telegram Send Error:", bgError.response ? bgError.response.data : bgError.message);
+            }
+        }, 50);
+
     } catch (error) {
-        console.error("Telegram Send Error:", error.response ? error.response.data : error.message);
-        res.status(500).json({ success: false, error: "Failed to send order to Telegram" });
+        console.error("Create Order Error:", error.message);
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: "Failed to create order" });
+        }
     }
 });
 
@@ -114,7 +123,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
         const { callback_query } = req.body;
 
         if (callback_query) {
-            // 🟢 1. Telegram Timeout မဖြစ်စေရန် အမြန်ဆုံး အကြောင်းပြန်ပါ
             try {
                 await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                     callback_query_id: callback_query.id,
@@ -152,7 +160,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // 🟢 2. ဝယ်သူထံ စာပို့ခြင်း
             if (targetChatId) {
                 try {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -165,7 +172,6 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // 🟢 3. Admin စာတို/ပုံ၏ စာသားကို Status သို့ ပြောင်းလဲခြင်း
             try {
                 if (callback_query.message.photo) {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
@@ -192,7 +198,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
         res.sendStatus(200);
     } catch (error) {
         console.error("Callback Error:", error.response ? error.response.data : error.message);
-        res.sendStatus(200); // Server Crash မဖြစ်စေရန် 200 သာ ပြန်ပေးပါမည်
+        res.sendStatus(200);
     }
 });
 
