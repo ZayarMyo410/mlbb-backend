@@ -50,7 +50,8 @@ app.post('/api/create-order', (req, res) => {
     const orderId = `GL-${formattedNumber}`;
     orderCounter++;
 
-    const targetId = customerChatId || "1745534669"; 
+    // 🟢 customerChatId မရှိပါက null ထားမည် (Admin ID ထဲ မဝင်စေရန်)
+    const targetId = customerChatId || null; 
 
     orderStore[orderId] = { status: "processing", customerChatId: targetId };
 
@@ -142,16 +143,12 @@ app.post('/api/telegram-webhook', async (req, res) => {
 
             let adminStatusTag = "";
             let customerMessage = "";
-            let targetChatId = orderStore[orderId]?.customerChatId || "1745534669";
+            let targetChatId = orderStore[orderId]?.customerChatId || null;
 
             if (action === "confirm") {
-                // 🟢 Admin ဘက်မှာ ပြမည့် အိုကေစာသား (တိုတိုလေး)
                 adminStatusTag = "\n\n🟢 *[CONFIRMED]*";
-                
-                // 🟢 ဝယ်သူ ဘက်သို့ ပို့မည့် စာအပြည့်အစုံ
                 customerMessage = `🎉 *Order ID (${orderId})* အား အတည်ပြုလိုက်ပါပြီ။ Diamond များ ထည့်သွင်းပေးပြီးပါပြီခင်ဗျာ။`;
                 
-                // 🟢 Admin နှိပ်လိုက်ရင် ပေါ်လာမည့် Popup Notification (အပေါ်မှ ခေတ္တ ပေါ်မည်)
                 try {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                         callback_query_id: callback_query.id,
@@ -163,10 +160,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                     orderStore[orderId].status = "completed";
                 }
             } else if (action === "reject") {
-                // 🔴 Admin ဘက်မှာ ပြမည့် ပယ်ဖျက်စာသား (တိုတိုလေး)
                 adminStatusTag = "\n\n🔴 *[REJECTED]*";
-                
-                // 🔴 ဝယ်သူ ဘက်သို့ ပို့မည့် စာအပြည့်အစုံ
                 customerMessage = `❌ *Order ID (${orderId})* အား ပယ်ဖျက်လိုက်ပါသည်။ အသေးစိတ်ကို Admin ထံ ဆက်သွယ်ပါခင်ဗျာ။`;
                 
                 try {
@@ -181,8 +175,8 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // 1. ဝယ်သူထံသို့ စာအပြည့်အစုံ ပို့မည်
-            if (targetChatId) {
+            // 🟢 ဝယ်သူ ID သီးသန့်ရှိပြီး Admin ID မဟုတ်မှသာ ဝယ်သူဆီ စာပို့မည်
+            if (targetChatId && String(targetChatId) !== String(ADMIN_CHAT_ID) && String(targetChatId) !== String(chatId)) {
                 try {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                         chat_id: targetChatId,
@@ -194,7 +188,7 @@ app.post('/api/telegram-webhook', async (req, res) => {
                 }
             }
 
-            // 2. Admin Telegram Message အား Update လုပ်မည် (Button များ ဖြုတ်ပြီး စာတိုလေးသာ ပေါင်းထည့်မည်)
+            // 🟢 Admin Message အား Update လုပ်မည် (Button များ ဖြုတ်ပြီး Status Tag လေးသာ ထည့်မည်)
             try {
                 if (callback_query.message.photo) {
                     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
