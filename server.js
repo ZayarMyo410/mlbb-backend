@@ -9,22 +9,24 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8828334122:AAHsmbuBmbhiRHBNvk8CjbhflAjUZ96PUl8";
+const ADMIN_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "1745534669";
 
 // 1. TELEGRAM ORDER API (Photo + Text + Buttons ကို တစ်ပေါင်းတည်း ပို့မည်)
 app.post('/api/create-order', async (req, res) => {
     try {
-        const { userId, zoneId, pkgName, price, payment, transId, slipBase64 } = req.body;
-
-        const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8828334122:AAHsmbuBmbhiRHBNvk8CjbhflAjUZ96PUl8";
-        const CHAT_ID = process.env.TELEGRAM_CHAT_ID || "1745534669";
+        const { userId, zoneId, pkgName, price, payment, transId, slipBase64, customerChatId } = req.body;
 
         const textMessage = `🛒 *New Order Received!*\n------------------------\n🎮 *Player ID:* ${userId || 'N/A'} (${zoneId || 'N/A'})\n📦 *Item:* ${pkgName || 'N/A'}\n💰 *Price:* ${price || 'N/A'}\n💳 *Payment:* ${payment || 'N/A'}\n🔢 *Trans ID:* ${transId || 'N/A'}\n⏰ *Time:* ${new Date().toLocaleString()}`;
+
+        // customerChatId ပါလာလျှင် သုံးမည်၊ မပါပါက transId ကို သုံးမည်
+        const targetId = customerChatId || transId || 'order';
 
         const replyMarkup = JSON.stringify({
             inline_keyboard: [
                 [
-                    { text: "✅ Confirm", callback_data: `confirm_${transId || 'order'}` },
-                    { text: "❌ Reject", callback_data: `reject_${transId || 'order'}` }
+                    { text: "✅ Confirm", callback_data: `confirm_${targetId}` },
+                    { text: "❌ Reject", callback_data: `reject_${targetId}` }
                 ]
             ]
         });
@@ -35,7 +37,7 @@ app.post('/api/create-order', async (req, res) => {
             const imageBuffer = Buffer.from(base64Data, 'base64');
             
             const form = new FormData();
-            form.append('chat_id', CHAT_ID);
+            form.append('chat_id', ADMIN_CHAT_ID);
             form.append('photo', imageBuffer, { filename: 'slip.jpg' });
             form.append('caption', textMessage);
             form.append('parse_mode', 'Markdown');
@@ -47,7 +49,7 @@ app.post('/api/create-order', async (req, res) => {
         } else {
             // Slip ပုံ မပါပါက စာတို + ခလုတ် ပို့မည်
             await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                chat_id: CHAT_ID,
+                chat_id: ADMIN_CHAT_ID,
                 text: textMessage,
                 parse_mode: 'Markdown',
                 reply_markup: JSON.parse(replyMarkup)
@@ -97,22 +99,40 @@ app.post('/api/telegram-webhook', async (req, res) => {
             const chatId = callback_query.message.chat.id;
             const originalText = callback_query.message.caption || callback_query.message.text || "";
 
-            const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8828334122:AAHsmbuBmbhiRHBNvk8CjbhflAjUZ96PUl8";
-
             let statusText = "";
+            let customerMessage = "";
+            
+            // confirm_ သို့မဟုတ် reject_ နောက်ကပါလာသော ID ကို ခွဲထုတ်ခြင်း
+            const targetId = callbackData.split("_")[1];
+
             if (callbackData.startsWith("confirm_")) {
                 statusText = "\n\n🟢 *STATUS: CONFIRMED BY ADMIN*";
+                customerMessage = "🎉 သင်၏ Order အား အတည်ပြုလိုက်ပါပြီ။ ကျေးဇူးတင်ရှိပါသည်။";
             } else if (callbackData.startsWith("reject_")) {
                 statusText = "\n\n🔴 *STATUS: REJECTED BY ADMIN*";
+                customerMessage = "❌ သင်၏ Order အား ပယ်ဖျက်လိုက်ပါသည်။ အသေးစိတ်ကို Admin ထံ ဆက်သွယ်ပါ။";
             }
 
-            // Telegram ၏ Loading State ကို ပိတ်လိုက်မည်
+            // ၁။ ဝယ်သူ (Customer) ထံ Telegram စာပြန်ပို့ခြင်း (Chat ID ဂဏန်းအမှန် ပါဝင်ပါက)
+            if (targetId && !isNaN(targetId)) {
+                try {
+                    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        chat_id: targetId,
+                        text: customerMessage,
+                        parse_mode: "Markdown"
+                    });
+                } catch (err) {
+                    console.error("Customer ထံ စာပို့ရာတွင် Error တက်ပါသည်:", err.response?.data || err.message);
+                }
+            }
+
+            // ၂။ Telegram ၏ Loading State ကို ပိတ်လိုက်မည်
             await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
                 callback_query_id: callback_query.id,
                 text: "Order status updated!"
             });
 
-            // Slip ပုံပါလျှင် Caption ကို ပြင်မည်၊ ပုံမပါလျှင် Text ကို ပြင်မည်
+            // ၃။ Admin Message ၏ Status ကို ပြင်ဆင်ပြီး ခလုတ်များကို ပျောက်သွားအောင်လုပ်မည်
             if (callback_query.message.photo) {
                 await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`, {
                     chat_id: chatId,
