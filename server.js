@@ -156,8 +156,23 @@ app.post('/api/chat', async (req, res) => {
 // 6. TELEGRAM CALLBACK QUERY HANDLER (WEBHOOK)
 app.post('/api/telegram-webhook', async (req, res) => {
     try {
-        const { callback_query } = req.body;
+        const { callback_query, message } = req.body;
+if (message && message.text && message.text.startsWith('/start')) {
+            const chatId = message.chat.id;
+            const welcomeMessage = `မင်္ဂလာပါ 👋 Grand Line Diamonds Shop မှ ကြိုဆိုပါတယ်ခင်ဗျာ။\n\nDiamond များ ဝယ်ယူရန် အောက်ပါ Shop Now Button ကို နှိပ်၍ ဝယ်ယူနိုင်ပါတယ်။`;
 
+            await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                chat_id: chatId,
+                text: welcomeMessage,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "💎 Shop Now", web_app: { url: "https://mlbb-backend-04am.onrender.com" } }]
+                    ]
+                }
+            });
+
+            return res.sendStatus(200);
+        }
         if (callback_query) {
             const callbackData = callback_query.data;
             const messageId = callback_query.message.message_id;
