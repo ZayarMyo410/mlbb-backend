@@ -605,15 +605,39 @@ const STATUS_API_URL = "https://mlbb-backend-04am.onrender.com/api/order-status"
     }
 
     function selectPayment(element, method, accNo) {
-        document.querySelectorAll('.payment-item').forEach(item => item.classList.remove('selected'));
-        element.classList.add('selected');
-        selectedPay = method;
+    document.querySelectorAll('.payment-item').forEach(item => item.classList.remove('selected'));
+    element.classList.add('selected');
+    selectedPay = method;
 
-        const detailsBox = document.getElementById('payDetails');
-        const accInfo = document.getElementById('accInfo');
-        accInfo.innerText = `${method} - ${accNo}`;
-        detailsBox.style.display = 'block';
-    }
+    const detailsBox = document.getElementById('payDetails');
+    
+    // ဖုန်းနံပါတ် သီးသန့် ခွဲထုတ်ယူမည့် variable
+    const phoneOnly = accNo.replace(/[^0-9]/g, '');
+
+    detailsBox.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span id="accInfo">${method} - ${accNo}</span>
+            <button type="button" onclick="copyPhoneNumber('${phoneOnly}', this)" style="background: #ffd700; color: #000; border: none; padding: 5px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                Copy
+            </button>
+        </div>
+    `;
+    detailsBox.style.display = 'block';
+}
+function copyPhoneNumber(accNo, btn) {
+    navigator.clipboard.writeText(accNo).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "Copied!";
+        btn.style.background = "#22c55e";
+        btn.style.color = "#fff";
+        
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = "#ffd700";
+            btn.style.color = "#000";
+        }, 2000);
+    }).catch(err => console.error("Copy failed:", err));
+}
 
     const convertToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
